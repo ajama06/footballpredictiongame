@@ -1,0 +1,465 @@
+import random
+import tkinter as tk
+from itertools import combinations
+from tkinter import ttk
+from tkinter import *
+from tkinter import messagebox
+import numpy as np
+
+root = Tk()
+root.title('Log in')
+root.geometry("300x200")
+
+
+def login():
+  username = entry1.get()
+  password = entry2.get()
+
+  if username == "" and password == "":
+    messagebox.showinfo("", "Blank space not allowed")
+  else:
+    messagebox.showinfo("", "Successfully logged in")
+    root.destroy()  # Close the login window
+
+    # After successful login, create the team selection window
+    team_selection_root = Tk()
+    TeamSelection(team_selection_root, team_list)
+    team_selection_root.mainloop()
+
+
+global entry1
+global entry2
+
+Label(root, text="username").place(x=20, y=20)
+Label(root, text="password").place(x=20, y=70)
+
+entry1 = Entry(root, bd=5)
+entry1.place(x=140, y=20)
+
+entry2 = Entry(root, bd=5)
+entry2.place(x=140, y=70)
+
+Button(root, text="Login", command=login, height=3, width=13,
+       bd=6).place(x=100, y=120)
+
+
+class Team:
+
+  def __init__(self, name, xg):
+    self.name = name
+    self.points = 0
+    self.goals_for = 0
+    self.goals_against = 0
+    self.played = 0
+    self.xg = xg
+
+  def play_match(self, opponent, game_week):
+    homexg = self.xg
+    awayxg = opponent.xg
+    home_goals = np.random.poisson(homexg, size=1)
+    away_goals = np.random.poisson(awayxg, size=1)
+
+    self.goals_for += home_goals
+    self.goals_against += away_goals
+    self.played += 1
+
+    opponent.goals_for += away_goals
+    opponent.goals_against += home_goals
+    opponent.played += 1
+
+    if home_goals > away_goals:
+      self.points += 3
+    elif home_goals == away_goals:
+      self.points += 1
+      opponent.points += 1
+    else:
+      opponent.points += 3
+      self.points += 0
+
+  def __str__(self):
+    return f"{self.name} - P:{self.played} | W:{self.points//3} | D:{self.points%3} | L:{self.played-(self.points//3+self.points%3)} | GF:{self.goals_for} | GA:{self.goals_against}"
+
+
+class MainMenu:
+
+  def __init__(self, root):
+    self.root = root
+    self.root.title("Main Menu")
+
+    self.setup_gui()
+
+  def setup_gui(self):
+    login_label = tk.Label(self.root, text="Enter Username:")
+    login_label.pack()
+
+    self.username_entry = tk.Entry(self.root)
+    self.username_entry.pack()
+
+    login_button = tk.Button(self.root, text="Log In", command=self.log_in)
+    login_button.pack()
+
+  def log_in(self):
+    username = self.username_entry.get()
+    # Simulating a database with a dictionary
+    # You can replace this with an actual database
+    # Make sure to use a proper database library like SQLite or SQLAlchemy for real applications
+    # For simplicity, let's assume 'users' is our user database
+    users = {'user1': 'password1', 'user2': 'password2'}  # Example users
+
+    # Check if the entered username exists in the database
+    if username in users:
+      self.root.destroy()  # Close the login window
+      main_menu_root = tk.Tk()
+      MainGameMenu(main_menu_root, username)
+      main_menu_root.mainloop()
+    else:
+      # Handle invalid username or prompt user to register
+      print("Invalid username. Please register or try a different username.")
+
+
+class MainGameMenu:
+
+  def __init__(self, root, username):
+    self.root = root
+    self.root.title("Game Menu")
+    self.username = username
+
+    self.setup_gui()
+
+  def setup_gui(self):
+    welcome_label = tk.Label(self.root, text=f"Welcome, {self.username}!")
+    welcome_label.pack()
+
+    menu_label = tk.Label(self.root, text="Choose an option:")
+    menu_label.pack()
+
+    begin_button = tk.Button(self.root,
+                             text="Begin the Game",
+                             command=self.begin_game)
+    begin_button.pack()
+
+    overview_button = tk.Button(self.root,
+                                text="Read a Brief Overview",
+                                command=self.read_overview)
+    overview_button.pack()
+
+    exit_button = tk.Button(self.root,
+                            text="Exit the Program",
+                            command=self.exit_program)
+    exit_button.pack()
+
+  def begin_game(self):
+    self.root.destroy()  # Close the game menu
+    team_selection_root = tk.Tk()
+    TeamSelection(team_selection_root, team_list)
+    team_selection_root.mainloop()
+
+  def read_overview(self):
+    messagebox.showinfo(
+        "Game Overview",
+        "This is a football league simulation game. You can select a team, predict match outcomes, and simulate game weeks to see how your chosen team performs in the league."
+    )
+
+  def exit_program(self):
+    self.root.destroy()
+
+
+class TeamSelection:
+
+  def __init__(self, root, team_list):
+    self.root = root
+    self.root.title("       Select Your Team     ")
+
+    self.team_list = team_list
+    self.selected_team = None
+
+    self.setup_gui()
+
+  def setup_gui(self):
+    team_label = tk.Label(
+        self.root,
+        text=
+        "Select a Team to Follow                                                         "
+    )
+    team_label.pack()
+
+    team_options = [team.name for team in self.team_list]
+    selected_team = tk.StringVar(value=team_options[2])
+    team_dropdown = tk.OptionMenu(self.root, selected_team, *team_options)
+    team_dropdown.pack()
+
+    confirm_button = tk.Button(
+        self.root,
+        text="Confirm",
+        command=lambda: self.confirm_team(selected_team.get()))
+    confirm_button.pack()
+
+  def confirm_team(self, selected_team):
+    self.selected_team = selected_team
+    self.root.destroy(
+    )  # This function closes the team selection window and takes you to the prediction window
+
+
+class MatchPrediction:
+
+  def __init__(self, root, selected_team, teams):
+    self.root = root
+    self.root.title("Match Prediction")
+
+    self.teams = teams
+    self.selected_team = selected_team
+    self.current_match = 0
+
+    self.setup_gui()
+
+  def setup_gui(self):
+    prediction_label = tk.Label(
+        self.root,
+        text=f"Predict next match for {self.selected_team}",
+        font=("Arial", 12))
+    prediction_label.pack()
+
+    self.match_predictions = {}
+    self.match_labels = []
+
+    # Find the opponent team
+    opponent_team = None
+    for team in self.teams:
+      if team.name != self.selected_team:
+        opponent_team = team
+        break
+
+    if opponent_team:
+      match_label = tk.Label(
+          self.root, text=f"{opponent_team.name} vs {self.selected_team}")
+      match_label.pack()
+      self.match_labels.append(match_label)
+
+      prediction_entry = tk.Entry(self.root)
+      prediction_entry.pack()
+
+      self.match_predictions[opponent_team.name] = prediction_entry
+
+    next_match_button = tk.Button(self.root,
+                                  text="Next Match",
+                                  command=self.predict_next_match)
+    next_match_button.pack()
+
+  def predict_next_match(self):
+    current_match_label = self.match_labels[self.current_match]
+    current_match_label.destroy()  # Remove the label for the current match
+
+    current_match_predictions = {}
+    for team_name, prediction_entry in self.match_predictions.items():
+      prediction = prediction_entry.get()
+      current_match_predictions[team_name] = prediction
+
+    # Get the teams playing the current match
+    home_team = None
+    away_team = None
+    team_names = list(self.match_predictions.keys())
+    if self.current_match < len(team_names):
+      home_team = next((team for team in self.teams
+                        if team.name == team_names[self.current_match]), None)
+      away_team = next(
+          (team for team in self.teams if team.name == self.selected_team),
+          None)
+
+    if home_team and away_team:
+      match_result = f"{home_team.name} {home_team.goals_for} - {away_team.goals_for} {away_team.name}"
+      print(f"Predictions for {home_team.name} vs {away_team.name}:")
+      print(current_match_predictions)
+
+      # Perform the simulation for the current match
+      home_team.play_match(away_team, self.current_match)
+      self.current_match += 1  # Move to the next match
+
+      # Simulate the remaining matches for all teams
+    def simulate_game_week(self):
+      # Create matchups using permutations
+      matchups = list(permutations(self.teams, 2))
+
+      # Shuffle the matchups for randomness
+      random.shuffle(matchups)
+
+      # Simulate matches for each matchup
+      for home, away in matchups:
+        if home != away:
+          home.play_match(away, self.current_game_week)
+
+      self.current_game_week += 1
+      self.update_table()
+
+    self.root.destroy(
+    )  # Close the prediction window and move to the Premier League table
+
+    # Start the simulation by displaying the Premier League table
+    root = tk.Tk()
+    PremierLeagueSimulator(root, self.selected_team, self.teams)
+
+
+class PremierLeagueSimulator:
+
+  def __init__(self, root, selected_team, teams):
+    self.root = root
+    self.root.title("Premier League Simulator")
+
+    self.teams = teams
+    self.selected_team = selected_team
+
+    self.current_game_week = 0
+
+    self.setup_gui()
+    self.update_table()
+
+  def setup_gui(self):
+    self.label = tk.Label(self.root,
+                          text="Premier League Table",
+                          font=("Arial", 16))
+    self.label.pack()
+
+    self.tree = ttk.Treeview(self.root,
+                             columns=("T", "P", "W", "D", "L", "GF", "GA",
+                                      "Pts"),
+                             show="headings",
+                             selectmode="none")
+    self.tree.heading("T", text="Teams", anchor="center")
+    self.tree.heading("P", text="P", anchor="center")
+    self.tree.heading("W", text="W", anchor="center")
+    self.tree.heading("D", text="D", anchor="center")
+    self.tree.heading("L", text="L", anchor="center")
+    self.tree.heading("GF", text="GF", anchor="center")
+    self.tree.heading("GA", text="GA", anchor="center")
+    self.tree.heading("Pts", text="Pts", anchor="center")
+    self.tree.pack()
+
+    self.tree.column("T", width=140)
+    self.tree.column("P", width=30)
+    self.tree.column("W", width=40)
+    self.tree.column("D", width=40)
+    self.tree.column("L", width=40)
+    self.tree.column("GF", width=40)
+    self.tree.column("GA", width=40)
+    self.tree.column("Pts", width=40)
+
+    self.tree.tag_configure("odd_row", background="#f2f2f2")
+    self.tree.tag_configure("header", background="#333333", foreground="white")
+
+    self.tree.insert("",
+                     "end",
+                     values=("Team", "Played", "Wins", "Draws", "Losses",
+                             "Goals For", "Goals Against", "Points"),
+                     tags=("header", ))
+
+    self.simulate_button = tk.Button(self.root,
+                                     text="Simulate Game Week",
+                                     command=self.simulate_game_week,
+                                     font=("Arial", 12))
+    self.simulate_button.pack()
+
+    self.match_result_label = tk.Label(self.root, text="", font=("Arial", 12))
+    self.match_result_label.pack()
+
+  def simulate_game_week(self):
+    matchups = list(combinations(self.teams, 2))
+    random.shuffle(matchups)
+    predictions_window = tk.Toplevel(self.root)
+    prediction_instance = MatchPrediction(predictions_window,
+                                          self.selected_team, self.teams)
+    user_predictions = prediction_instance.confirm_predictions()
+
+    correct_predictions = {}
+    for match in matchups:
+      home_team, away_team = match
+      home_team.play_match(away_team, self.current_game_week)
+      match_result = f"{home_team.name} {home_team.goals_for} - {away_team.goals_for} {away_team.name}"
+      self.print_match_result(match_result)
+
+      # Check if the user made a prediction for this match
+      if home_team.name in user_predictions and away_team.name in user_predictions:
+        user_prediction = user_predictions[home_team.name]
+        actual_result = f"{home_team.name} {home_team.goals_for} - {away_team.goals_for} {away_team.name}"
+        if user_prediction == actual_result:
+          correct_predictions[home_team.name] = actual_result
+        else:
+          correct_predictions[
+              home_team.
+              name] = f"Predicted: {user_prediction}, Actual: {actual_result}"
+
+    print("Predictions Compared with Results:")
+    print(correct_predictions)
+
+    for match in matchups:
+      home_team, away_team = match
+      home_team.play_match(away_team, self.current_game_week)
+      match_result = f"{home_team.name} {home_team.goals_for} - {away_team.goals_for} {away_team.name}"
+      self.match_result_label.config(text=match_result)
+      self.print_match_result(match_result)
+
+    if self.selected_team is not None:
+      print(f"You are following: {self.selected_team}")
+
+    self.current_game_week += 1
+    self.update_table()
+
+  def print_match_result(self, result):
+    print(result)
+
+  def update_table(self):
+    for item in self.tree.get_children():
+      self.tree.delete(item)
+
+    sorted_teams = sorted(
+        self.teams,
+        key=lambda team:
+        (-team.points, team.goals_for - team.goals_against, team.goals_for),
+        reverse=False)
+
+    for i, team in enumerate(sorted_teams):
+      row_tags = ("odd_row", ) if i % 2 == 1 else ()
+      self.tree.insert(
+          "",
+          "end",
+          values=(team.name, team.played, team.points // 3, team.points % 3,
+                  team.played - (team.points // 3 + team.points % 3),
+                  team.goals_for, team.goals_against, team.points),
+          tags=row_tags)
+
+    self.label.config(
+        text=f"Premier League Table - Game Week {self.current_game_week}")
+
+
+def main():
+  # Create the team selection window
+  team_selection_root = tk.Tk()
+  team_selection = TeamSelection(team_selection_root, team_list)
+
+  team_selection_root.mainloop()
+
+  # After team selection, create the main simulator window
+  if team_selection.selected_team is not None:
+    prediction_root = tk.Tk()
+    MatchPrediction(prediction_root, team_selection.selected_team, team_list)
+    prediction_root.mainloop()
+
+    root = tk.Tk()
+    PremierLeagueSimulator(root, team_selection.selected_team, team_list)
+    root.mainloop()
+
+
+if __name__ == "__main__":
+  # Define teams and xg value
+  team_list = [
+      Team("Chelsea", 0.91),
+      Team("Arsenal", 0.89),
+      Team("Manchester City", 0.1),
+      Team("Manchester United", 0.11),
+      Team("Tottenham Hotspur", 0.1),
+      Team("Luton Town", 0.1),
+      Team("Crystal Palace", 0.1),
+      Team("Aston Villa", 0.1),
+      Team("West Ham", 0.1),
+      Team("Brighton", 0.1),
+  ]
+
+  main()
